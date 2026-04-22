@@ -5,31 +5,39 @@ import SqlParser, { AST } from "node-sql-parser";
 const { Parser } = SqlParser;
 const parser = new Parser();
 
-// Extract schema from SQL query
+// Extract schema from SQL query using AST parser to prevent regex bypass
+// via SQL comments (e.g. USE/**/schema_name)
 function extractSchemaFromQuery(sql: string): string | null {
-  // Default schema from environment
   const defaultSchema = process.env.MYSQL_DB || null;
 
-  // If we have a default schema and not in multi-DB mode, return it
   if (defaultSchema && !isMultiDbMode) {
     return defaultSchema;
   }
 
-  // Try to extract schema from query
+  try {
+    const astOrArray: AST | AST[] = parser.astify(sql, { database: "mysql" });
+    const statements = Array.isArray(astOrArray) ? astOrArray : [astOrArray];
 
-  // Case 1: USE database statement
-  const useMatch = sql.match(/USE\s+`?([a-zA-Z0-9_]+)`?/i);
-  if (useMatch && useMatch[1]) {
-    return useMatch[1];
+    for (const stmt of statements) {
+      // Case 1: USE database statement
+      if (stmt.type === "use" && (stmt as any).db) {
+        return (stmt as any).db;
+      }
+
+      // Case 2: database.table notation in FROM/INTO/UPDATE etc. clauses
+      const tableRefs = (stmt as any).table || (stmt as any).from;
+      if (Array.isArray(tableRefs)) {
+        for (const t of tableRefs) {
+          if (t?.db) return t.db;
+        }
+      } else if (tableRefs?.db) {
+        return tableRefs.db;
+      }
+    }
+  } catch {
+    // AST parse failed, fall through to default
   }
 
-  // Case 2: database.table notation
-  const dbTableMatch = sql.match(/`?([a-zA-Z0-9_]+)`?\.`?[a-zA-Z0-9_]+`?/i);
-  if (dbTableMatch && dbTableMatch[1]) {
-    return dbTableMatch[1];
-  }
-
-  // Return default if we couldn't find a schema in the query
   return defaultSchema;
 }
 
