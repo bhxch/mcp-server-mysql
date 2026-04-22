@@ -15,6 +15,7 @@ export interface Socks5Config {
 export function createSocks5StreamFactory(
   socks5: Socks5Config,
   destination: { host: string; port: number },
+  timeout?: number,
 ) {
   return (callback: (err: Error | null, stream?: NodeJS.ReadWriteStream) => void) => {
     SocksClient.createConnection({
@@ -27,6 +28,7 @@ export function createSocks5StreamFactory(
       },
       command: "connect",
       destination,
+      timeout,
     })
       .then(({ socket }) => {
         log("info", `SOCKS5 connection established via ${socks5.host}:${socks5.port}`);

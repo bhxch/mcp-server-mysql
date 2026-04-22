@@ -172,6 +172,8 @@ export const mcpConfig = {
           dateStrings: true,
         }
       : {}),
+    // SOCKS5 stream factory (set below after socks5Config is resolved)
+    stream: undefined as ((callback: (err: Error | null, stream?: NodeJS.ReadWriteStream) => void) => void) | undefined,
   },
   paths: {
     schema: "schema",
@@ -181,12 +183,18 @@ export const mcpConfig = {
 // SOCKS5 proxy support
 const socks5Host = process.env.MYSQL_SOCKS5_HOST;
 const socks5Config: Socks5Config | null = socks5Host
-  ? {
-      host: socks5Host,
-      port: parseInt(process.env.MYSQL_SOCKS5_PORT || "1080", 10),
-      ...(process.env.MYSQL_SOCKS5_USERNAME ? { userId: process.env.MYSQL_SOCKS5_USERNAME } : {}),
-      ...(process.env.MYSQL_SOCKS5_PASSWORD ? { password: process.env.MYSQL_SOCKS5_PASSWORD } : {}),
-    }
+  ? (() => {
+      const port = parseInt(process.env.MYSQL_SOCKS5_PORT || "1080", 10);
+      if (isNaN(port) || port < 1 || port > 65535) {
+        throw new Error(`Invalid MYSQL_SOCKS5_PORT: ${process.env.MYSQL_SOCKS5_PORT}`);
+      }
+      return {
+        host: socks5Host,
+        port,
+        ...(process.env.MYSQL_SOCKS5_USERNAME ? { userId: process.env.MYSQL_SOCKS5_USERNAME } : {}),
+        ...(process.env.MYSQL_SOCKS5_PASSWORD ? { password: process.env.MYSQL_SOCKS5_PASSWORD } : {}),
+      };
+    })()
   : null;
 
 if (socks5Config) {
@@ -198,7 +206,7 @@ if (socks5Config) {
       host: connectionStringConfig.host || process.env.MYSQL_HOST || "127.0.0.1",
       port: connectionStringConfig.port || Number(process.env.MYSQL_PORT || "3306"),
     };
-    (mcpConfig.mysql as Record<string, unknown>).stream = createSocks5StreamFactory(socks5Config, dest);
+    mcpConfig.mysql.stream = createSocks5StreamFactory(socks5Config, dest, mcpConfig.mysql.connectTimeout);
   }
 }
 
