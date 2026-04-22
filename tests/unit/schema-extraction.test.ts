@@ -69,6 +69,49 @@ describe("extractSchemaFromQuery", () => {
     });
   });
 
+  describe("DDL statements", () => {
+    it("extracts schema from DROP TABLE with qualified name", () => {
+      expect(
+        extractSchemaFromQuery("DROP TABLE test_db.old_table")
+      ).toBe("test_db");
+    });
+
+    it("extracts schema from TRUNCATE TABLE with qualified name", () => {
+      expect(
+        extractSchemaFromQuery("TRUNCATE TABLE test_db.logs")
+      ).toBe("test_db");
+    });
+
+    it("extracts schema from ALTER TABLE with qualified name", () => {
+      expect(
+        extractSchemaFromQuery(
+          "ALTER TABLE test_db.users ADD COLUMN age INT"
+        )
+      ).toBe("test_db");
+    });
+  });
+
+  describe("JOIN queries", () => {
+    it("extracts first schema from multi-table JOIN", () => {
+      expect(
+        extractSchemaFromQuery(
+          "SELECT * FROM staging.users u JOIN production.orders o ON u.id = o.user_id"
+        )
+      ).toBe("staging");
+    });
+  });
+
+  describe("subqueries", () => {
+    // Schema in nested subquery AST is not extracted — returns null
+    it("returns null for schema inside subquery (known limitation)", () => {
+      expect(
+        extractSchemaFromQuery(
+          "SELECT * FROM (SELECT * FROM production.users) AS sub"
+        )
+      ).toBeNull();
+    });
+  });
+
   describe("fallback behavior", () => {
     it("returns null when no schema found and no default", () => {
       expect(extractSchemaFromQuery("SELECT 1")).toBeNull();
