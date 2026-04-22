@@ -124,6 +124,9 @@ log(
       sslCert: process.env.MYSQL_SSL_CERT || "not set",
       sslKey: process.env.MYSQL_SSL_KEY || "not set",
       multiDbMode: isMultiDbMode ? "enabled" : "disabled",
+      socks5Proxy: process.env.MYSQL_SOCKS5_HOST
+        ? `${process.env.MYSQL_SOCKS5_HOST}:${process.env.MYSQL_SOCKS5_PORT || 1080}`
+        : "disabled",
     },
     null,
     2,
