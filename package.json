@@ -48,6 +48,7 @@
     "mcp-evals": "^1.0.18",
     "mysql2": "^3.14.1",
     "node-sql-parser": "^5.3.9",
+    "socks": "^2.8.7",
     "zod": "^3.25.67"
   },
   "devDependencies": {
