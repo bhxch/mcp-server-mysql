@@ -24,14 +24,18 @@ function extractSchemaFromQuery(sql: string): string | null {
         return (stmt as any).db;
       }
 
-      // Case 2: database.table notation in FROM/INTO/UPDATE etc. clauses
-      const tableRefs = (stmt as any).table || (stmt as any).from;
-      if (Array.isArray(tableRefs)) {
-        for (const t of tableRefs) {
-          if (t?.db) return t.db;
+      // Case 2: database.table notation
+      // Check multiple AST locations: table (ALTER/INSERT/UPDATE/DELETE),
+      // from (SELECT), name (DROP/TRUNCATE)
+      for (const key of ["table", "from", "name"] as const) {
+        const tableRefs = (stmt as any)[key];
+        if (Array.isArray(tableRefs)) {
+          for (const t of tableRefs) {
+            if (t?.db) return t.db;
+          }
+        } else if (tableRefs?.db) {
+          return tableRefs.db;
         }
-      } else if (tableRefs?.db) {
-        return tableRefs.db;
       }
     }
   } catch {
