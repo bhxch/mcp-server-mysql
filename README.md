@@ -562,6 +562,15 @@ When `MYSQL_CONNECTION_STRING` is provided, it takes precedence over individual 
 - `SCHEMA_DDL_PERMISSIONS`: Schema-specific DDL permissions
 - `MULTI_DB_WRITE_MODE`: Enable write operations in multi-DB mode (default: "false")
 
+### SOCKS5 Proxy Configuration
+
+- `MYSQL_SOCKS5_HOST`: SOCKS5 proxy host address. When set, all MySQL connections are routed through the specified SOCKS5 proxy.
+- `MYSQL_SOCKS5_PORT`: SOCKS5 proxy port (default: `"1080"`).
+- `MYSQL_SOCKS5_USERNAME`: Optional username for SOCKS5 authentication.
+- `MYSQL_SOCKS5_PASSWORD`: Optional password for SOCKS5 authentication.
+
+SOCKS5 proxy is only supported for TCP/IP connections (not Unix socket).
+
 ### Timezone and Date Configuration
 
 - `MYSQL_TIMEZONE`: Set the timezone for date/time values. Accepts formats like `+08:00` (UTC+8), `-05:00` (UTC-5), `Z` (UTC), or `local` (system timezone). Useful for ensuring consistent date/time handling across different server locations.

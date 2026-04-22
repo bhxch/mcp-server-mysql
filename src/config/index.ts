@@ -2,6 +2,7 @@ import * as dotenv from "dotenv";
 import * as fs from "fs";
 import { SchemaPermissions } from "../types/index.js";
 import { parseSchemaPermissions, parseMySQLConnectionString } from "../utils/index.js";
+import { createSocks5StreamFactory, type Socks5Config } from "../db/socks5.js";
 
 /**
  * Read and validate an SSL file (certificate, key, or CA) for SSL connections.
@@ -176,5 +177,29 @@ export const mcpConfig = {
     schema: "schema",
   },
 };
+
+// SOCKS5 proxy support
+const socks5Host = process.env.MYSQL_SOCKS5_HOST;
+const socks5Config: Socks5Config | null = socks5Host
+  ? {
+      host: socks5Host,
+      port: parseInt(process.env.MYSQL_SOCKS5_PORT || "1080", 10),
+      ...(process.env.MYSQL_SOCKS5_USERNAME ? { userId: process.env.MYSQL_SOCKS5_USERNAME } : {}),
+      ...(process.env.MYSQL_SOCKS5_PASSWORD ? { password: process.env.MYSQL_SOCKS5_PASSWORD } : {}),
+    }
+  : null;
+
+if (socks5Config) {
+  const socketPath = connectionStringConfig.socketPath || process.env.MYSQL_SOCKET_PATH;
+  if (socketPath) {
+    console.warn("SOCKS5 proxy is not supported with Unix socket connections - ignoring MYSQL_SOCKS5_* settings");
+  } else {
+    const dest = {
+      host: connectionStringConfig.host || process.env.MYSQL_HOST || "127.0.0.1",
+      port: connectionStringConfig.port || Number(process.env.MYSQL_PORT || "3306"),
+    };
+    (mcpConfig.mysql as Record<string, unknown>).stream = createSocks5StreamFactory(socks5Config, dest);
+  }
+}
 
 export { readCACertificate, readSSLFile };
