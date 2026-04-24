@@ -173,7 +173,7 @@ export const mcpConfig = {
         }
       : {}),
     // SOCKS5 stream factory (set below after socks5Config is resolved)
-    stream: undefined as ((callback: (err: Error | null, stream?: NodeJS.ReadWriteStream) => void) => void) | undefined,
+    stream: undefined as (() => NodeJS.ReadWriteStream) | undefined,
   },
   paths: {
     schema: "schema",
@@ -206,7 +206,7 @@ if (socks5Config) {
       host: connectionStringConfig.host || process.env.MYSQL_HOST || "127.0.0.1",
       port: connectionStringConfig.port || Number(process.env.MYSQL_PORT || "3306"),
     };
-    mcpConfig.mysql.stream = createSocks5StreamFactory(socks5Config, dest, mcpConfig.mysql.connectTimeout);
+    mcpConfig.mysql.stream = createSocks5StreamFactory(socks5Config, dest);
   }
 }
 

@@ -1,3 +1,4 @@
+import { Duplex } from "stream";
 import { SocksClient } from "socks";
 import { log } from "./../utils/index.js";
 
@@ -10,14 +11,30 @@ export interface Socks5Config {
 
 /**
  * Creates a stream factory function for mysql2 that routes connections through a SOCKS5 proxy.
- * mysql2 calls this function for each new connection, passing a callback `(err, stream)`.
+ * mysql2 calls this function synchronously and expects a stream return value.
+ * We return a Duplex stream immediately and connect the SOCKS5 tunnel in the background.
  */
 export function createSocks5StreamFactory(
   socks5: Socks5Config,
   destination: { host: string; port: number },
   timeout?: number,
 ) {
-  return (callback: (err: Error | null, stream?: NodeJS.ReadWriteStream) => void) => {
+  return () => {
+    let socksSocket: import("net").Socket | null = null;
+    const pendingWrites: Buffer[] = [];
+
+    const proxyStream = new Duplex({
+      read() { },
+      write(chunk: Buffer, _encoding: string, callback: (error?: Error | null) => void) {
+        if (socksSocket) {
+          socksSocket.write(chunk);
+        } else {
+          pendingWrites.push(Buffer.from(chunk));
+        }
+        callback();
+      },
+    });
+
     SocksClient.createConnection({
       proxy: {
         host: socks5.host,
@@ -31,12 +48,24 @@ export function createSocks5StreamFactory(
       timeout,
     })
       .then(({ socket }) => {
+        socksSocket = socket;
         log("info", `SOCKS5 connection established via ${socks5.host}:${socks5.port}`);
-        callback(null, socket);
+
+        socket.on("data", (data: Buffer) => proxyStream.push(data));
+        socket.on("end", () => proxyStream.push(null));
+        socket.on("error", (err: Error) => proxyStream.emit("error", err));
+        socket.on("close", () => proxyStream.destroy());
+
+        for (const chunk of pendingWrites) {
+          socket.write(chunk);
+        }
+        pendingWrites.length = 0;
       })
       .catch((err: Error) => {
         log("error", `SOCKS5 connection failed: ${err.message}`);
-        callback(err);
+        proxyStream.emit("error", err);
       });
+
+    return proxyStream;
   };
 }
